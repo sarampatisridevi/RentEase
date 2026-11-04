@@ -16,6 +16,8 @@ import OwnerAllProperties from "./modules/user/owner/AllProperties";
 import AllPropertiesCards from "./modules/user/AllPropertiesCards";
 import { createContext, useEffect, useState } from "react";
 
+import ChatBot from "./modules/common/ChatBot";
+
 export const UserContext = createContext();
 
 function App() {
@@ -55,7 +57,9 @@ function App() {
           <Route path='/getallproperties' element={<OwnerAllProperties />} />
           <Route path='/getallbookings' element={<RenterAllProperty />} />
           <Route path='/getAllProperties' element={<AllPropertiesCards />} />
+          
         </Routes>
+        <ChatBot />
       </BrowserRouter>
     </div>
     </UserContext.Provider>

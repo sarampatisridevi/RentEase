@@ -5,6 +5,8 @@ const path = require("path");
 const cookieParser = require("cookie-parser");
 const connectDB = require("./config/connect.js");
 
+const chatRoute = require("./routes/chat");
+
 const app = express();
 
 //////dotenv config/////////////////////
@@ -15,6 +17,9 @@ const PORT = process.env.PORT || 8001;
 
 
 app.use(express.json());
+
+app.use("/api/ai", chatRoute);
+
 app.use(cors({
   origin: 'http://localhost:5173',
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
