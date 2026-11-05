@@ -105,7 +105,3 @@ Open `http://localhost:5173` in your browser.
 - AI-generated property descriptions for owners
 - Natural language property search
 - Pagination and rate limiting
-
-
-**Your Name**
-[GitHub](https://github.com/your-username) | [LinkedIn](https://linkedin.com/in/your-profile)
