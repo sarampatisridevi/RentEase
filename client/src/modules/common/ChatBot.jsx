@@ -1,16 +1,13 @@
-
 import { useState, useRef, useEffect } from "react";
 
-// CHANGE this to your backend address.
-// If you have a proxy set up in vite.config.js, use "" (empty) instead.
-const API_URL = "http://localhost:5173";
+const API_URL = "http://localhost:8001";
 
 export default function ChatBot() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState([
-    { role: "assistant", content: "Hi! Ask me about available homes 🏠" },
+    { role: "assistant", content: "Hi! Ask me about available properties 🏠" },
   ]);
   const endRef = useRef(null);
 
@@ -39,6 +36,7 @@ export default function ChatBot() {
       const data = await res.json();
       setMessages([...updated, { role: "assistant", content: data.reply }]);
     } catch (err) {
+      console.log("Chat error:", err);
       setMessages([
         ...updated,
         { role: "assistant", content: "Network error. Please try again." },
@@ -55,7 +53,7 @@ export default function ChatBot() {
 
       {open && (
         <div style={styles.box}>
-          <div style={styles.header}>Rental Assistant</div>
+          <div style={styles.header}>Property Assistant</div>
 
           <div style={styles.body}>
             {messages.map((m, i) => (
@@ -84,7 +82,7 @@ export default function ChatBot() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && send()}
-              placeholder="Ask about homes..."
+              placeholder="Ask about properties..."
               style={styles.input}
             />
             <button onClick={send} style={styles.send}>Send</button>

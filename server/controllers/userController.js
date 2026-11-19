@@ -1,8 +1,10 @@
+
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const userSchema = require("../models/UserSchema");
 const propertySchema = require("../models/PropertySchema");
 const bookingSchema = require("../models/BookingSchema");
+const { sendEmail } = require("../utils/notify");
 
 //////////for registering/////////////////////////////
 const registerController = async (req, res) => {
@@ -185,13 +187,32 @@ const bookingHandleController = async (req, res) => {
     const booking = new bookingSchema({
       propertyId: propertyid,
       userID: userId,
-      ownerID: ownerId, 
+      ownerID: ownerId,
       userName: userDetails.fullName,
       phone: userDetails.phone,
       bookingStatus: status,
     });
 
     await booking.save();
+    console.log("BOOKING SAVED, sending email...");
+
+    // Email to the owner with the booker's name and phone
+    try {
+      const property = await propertySchema.findById(propertyid).lean();
+      await sendEmail(
+        process.env.OWNER_NOTIFY_EMAIL,
+        `New booking request: ${property?.propertyAddress || "property"}`,
+        `<h2>New booking request 🏠</h2>
+         <p><b>Property:</b> ${property?.propertyAddress || "-"} (${property?.propertyType || "-"} - ${property?.propertyAdType || "-"})</p>
+         <p><b>Price:</b> ₹${property?.propertyAmt || "-"}</p>
+         <hr/>
+         <p><b>Booked by:</b> ${userDetails.fullName}</p>
+         <p><b>Phone:</b> ${userDetails.phone}</p>
+         <p>Log in to RentEase to approve or reject this request.</p>`
+      );
+    } catch (mailError) {
+      console.error("Booking email error:", mailError.message);
+    }
 
     return res
       .status(200)

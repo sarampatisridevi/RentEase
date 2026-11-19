@@ -4,6 +4,7 @@ import { UserContext } from "../../../App";
 import PropTypes from "prop-types";
 import AllPropertiesCards from "../AllPropertiesCards";
 import AllProperty from "./AllProperties";
+import RecommendedProperties from "../../common/RecommendedProperties";
 
 const CustomTabPanel = ({ children, value, index }) => {
   return (
@@ -24,6 +25,10 @@ const RenterHome = () => {
   const [value, setValue] = useState(0);
 
   if (!user || !user.userData) return null;
+
+  // taken from the logged-in user in context
+  const userId = user.userData._id;
+  const userEmail = user.userData.email;
 
   const handleLogOut = () => {
     localStorage.removeItem("token");
@@ -75,7 +80,7 @@ const RenterHome = () => {
         {/* Tab Panels */}
         <CustomTabPanel value={value} index={0}>
           <div className="mt-6">
-            <AllPropertiesCards loggedIn={user.userLoggedIn} />
+            <AllPropertiesCards loggedIn={user.userLoggedIn} userId={userId} />
           </div>
         </CustomTabPanel>
 
@@ -85,6 +90,11 @@ const RenterHome = () => {
           </div>
         </CustomTabPanel>
       </div>
+
+      {/* Recommendations */}
+      {userId && (
+        <RecommendedProperties userId={userId} email={userEmail} />
+      )}
     </div>
   );
 };

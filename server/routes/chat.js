@@ -1,13 +1,21 @@
 const express = require("express");
 const { GoogleGenAI } = require("@google/genai");
-const Property = require("../models/PropertySchema");   // CHANGE to your real model file name
+const Property = require("../models/PropertySchema");
 
 const router = express.Router();
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// Stops waiting if Gemini does not answer in time
+const withTimeout = (promise, ms) =>
+  Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(Object.assign(new Error("Gemini timeout"), { status: 504 })), ms)
+    ),
+  ]);
+
 async function askGemini(ai, contents, systemInstruction) {
-  // Tries the main model first, then lighter backups
   const models = [
     process.env.GEMINI_MODEL || "gemini-flash-latest",
     "gemini-flash-lite-latest",
@@ -16,17 +24,24 @@ async function askGemini(ai, contents, systemInstruction) {
   for (const model of models) {
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
-        const response = await ai.models.generateContent({
-          model,
-          contents,
-          config: { systemInstruction, maxOutputTokens: 500 },
-        });
+        console.log(`Asking Gemini: ${model}, attempt ${attempt}`);
+        const response = await withTimeout(
+          ai.models.generateContent({
+            model,
+            contents,
+            config: { systemInstruction, maxOutputTokens: 800 },
+          }),
+          10000
+        );
         return response.text;
       } catch (err) {
-        console.log(`Model ${model}, attempt ${attempt} failed: ${err.status || err.message}`);
-        // Only retry when Google is busy or rate limiting
-        if (err.status !== 503 && err.status !== 429) throw err;
-        await sleep(1500);
+        console.log(`Model ${model} attempt ${attempt} failed:`, err.status || err.message);
+        if (err.status === 503 || err.status === 429) {
+          await sleep(1500); // busy: try the same model again
+          continue;
+        }
+        if (err.status === 504) break; // no answer: move to the next model
+        throw err; // other errors (wrong key, wrong model name)
       }
     }
   }
@@ -35,40 +50,39 @@ async function askGemini(ai, contents, systemInstruction) {
 
 router.post("/chat", async (req, res) => {
   try {
+    console.log("CHAT REQUEST:", req.body.message);
     const { message, history = [] } = req.body;
 
-    // Create the client here so the .env key is already loaded
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-    // 1. Get properties from your database
+    // Owner details are NOT sent to the AI
     const properties = await Property.find({})
-      .select("propertyType propertyAdType propertyAddress propertyAmt additionalInfo ownerName ownerContact")
+      .select("propertyType propertyAdType propertyAddress propertyAmt additionalInfo isAvailable")
       .limit(30)
       .lean();
 
     console.log("properties found:", properties.length);
 
-    // 2. Instructions for the AI
     const systemInstruction = `You are a friendly assistant for a home rental website in India.
 Answer ONLY using the property listings below. If nothing matches, say so politely.
 Keep replies short (maximum 4 sentences).
 
 Field meanings:
-- propertyType: type of property (house, flat, etc.)
+- propertyType: type of property (residential, commercial, land/plot)
 - propertyAdType: whether it is for rent or sale
 - propertyAddress: location of the property
 - propertyAmt: price in rupees
 - additionalInfo: extra details about the property
-- ownerName and ownerContact: owner details
+- isAvailable: "Available" or not available
 
 When you mention a property, include its type, address and price (in ₹).
-Share the owner contact only if the user asks for it.
+Prefer properties that are Available.
+For owner contact details, tell the user to log in and open the property.
 If the question is not about properties, politely say you can only help with property questions.
 
 LISTINGS:
 ${JSON.stringify(properties)}`;
 
-    // 3. Convert chat history into Gemini format (Gemini uses "model", not "assistant")
     const contents = [
       ...history.slice(-10).map((m) => ({
         role: m.role === "assistant" ? "model" : "user",
@@ -77,12 +91,12 @@ ${JSON.stringify(properties)}`;
       { role: "user", parts: [{ text: message }] },
     ];
 
-    // 4. Ask Gemini
     const reply = await askGemini(ai, contents, systemInstruction);
+    console.log("Gemini replied");
     res.json({ reply });
   } catch (err) {
-    console.error("Chat error:", err);
-    res.status(500).json({ reply: "The assistant is very busy right now. Please try again in a moment." });
+    console.error("Chat error:", err.status || "", err.message);
+    res.json({ reply: "The assistant is very busy right now. Please try again in a moment." });
   }
 });
 

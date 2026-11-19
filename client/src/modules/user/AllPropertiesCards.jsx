@@ -2,8 +2,7 @@ import axios from "axios";
 import React, { useState, useEffect } from "react";
 import Toast from "../common/Toast";
 
-
-const AllPropertiesCards = ({ loggedIn }) => {
+const AllPropertiesCards = ({ loggedIn, userId }) => {
   const [allProperties, setAllProperties] = useState([]);
   const [filterPropertyType, setPropertyType] = useState("");
   const [filterPropertyAdType, setPropertyAdType] = useState("");
@@ -29,6 +28,7 @@ const AllPropertiesCards = ({ loggedIn }) => {
     }
   };
 
+  // Booking: the SERVER sends the email to the owner after saving the booking
   const handleBooking = async (status, propertyId, ownerId) => {
     try {
       const res = await axios.post(
@@ -76,7 +76,20 @@ const AllPropertiesCards = ({ loggedIn }) => {
           .includes(filterPropertyType.toLowerCase())
     );
 
+  // Saves which property the renter viewed (used for recommendations)
+  const trackView = (propertyId) => {
+    if (!userId) return;
+    axios
+      .post(
+        "http://localhost:8001/api/recommend/view",
+        { userId, propertyId },
+        { withCredentials: true }
+      )
+      .catch((error) => console.log(error));
+  };
+
   const openModal = (property) => {
+    trackView(property._id);
     setSelectedProperty(property);
     setShowModal(true);
   };
